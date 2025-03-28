@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-files = ['Louie_mand.csv', 'Louie_max.csv', 'Lo_mand.csv', 'Lo_max.csv']
+files = ['Louie_mand.csv', 'Louie_max.csv']
+# files = ['Lo_mand.csv', 'Lo_max.csv']
 
-def find_min_dis(file_path):
-    df = pd.read_csv(file_path)
+def find_min_dis(data_frame):
     data = {}
-    for _, row in df.iterrows():
+    for _, row in data_frame.iterrows():
         point = row['Point']  # e.g., 'LO L1-6'
         parts = point.split()
         if len(parts) != 2:
@@ -31,20 +31,20 @@ def find_min_dis(file_path):
         data[line_id][is_stl][idx] = coords    
     
     
+    lines_error = []
     for line_id in data:
         if (len(data[line_id][0]) != len(data[line_id][1])):
             print(f'Error: {line_id}')
             continue
-        # for i in [0, 1]:
-        #     print(f'data[{line_id}][{i}]: {data[line_id][i]}')
         
         min_dis = compute_distances(data[line_id][0], data[line_id][1])
-        
+        lines_error.extend([x for x in min_dis if x is not None])
         print(f"{line_id}: {min_dis}")
         min_dis = [x for x in min_dis if x is not None]
         x_values = np.linspace(0, 1, len(min_dis))
         plt.plot(x_values, min_dis, marker='o', label=line_id, linewidth=0.5)
         plt.axhline(y=2.0, color='red', linewidth=1)
+    print(f"Mean: {np.mean(lines_error)}, Std: {np.std(lines_error)}")
         
 
 
@@ -92,9 +92,15 @@ def remove_outliers(dists):
     return [dist if lower_bound <= dist <= upper_bound else None for dist in dists]
 
 for f in files:
+    extracted_csv_path = './raw/extracted' / Path(f)
+    print(f'Read {extracted_csv_path}')
+    df = pd.read_csv(extracted_csv_path)
+
+    if f == 'Louie_mand.csv':
+        df = df[~df['Point'].str.contains('LO R1-|CT R1-')]  # 刪除Louie_mand.csv 的LO R1-X, CT R1-X
+
     plt.figure(figsize=(10, 6))
-    print(f'Processing {f}...')
-    find_min_dis('./raw/extracted' / Path(f))
+    find_min_dis(df)
 
     # 添加標題和標籤
     plt.title(f"Shortest Distances to Curve: {f}")
